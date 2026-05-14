@@ -181,6 +181,11 @@ body{background:#0a0a12;display:flex;justify-content:center;min-height:100vh;pad
         <span id="tourn-preview" style="font-size:16px"></span>
       </div>
     </div>
+    <div onclick="startTutorialBattle()" style="background:rgba(74,222,128,.06);border:2px solid rgba(74,222,128,.2);border-radius:12px;padding:18px 20px;cursor:pointer">
+      <div style="font-size:22px;margin-bottom:6px">&#127979;</div>
+      <div style="font-size:16px;font-weight:700;color:#4ade80;margin-bottom:4px">Tutorial Battle</div>
+      <div style="font-size:13px;color:#888;line-height:1.5">Learn by playing &#8212; Sensei Wu guides you through your first battle step by step.</div>
+    </div>
   </div>
   <div onclick="showS('ts')" style="font-size:13px;color:#555;cursor:pointer;padding:4px 8px;user-select:none">&#8592; Back</div>
 </div>
@@ -318,6 +323,21 @@ body{background:#0a0a12;display:flex;justify-content:center;min-height:100vh;pad
       <span style="font-size:11px;color:#555;flex:1">Reviewing battle</span>
       <div onclick="clearReview();showS('ms');resetGame()" style="padding:8px 14px;background:#f0a500;color:#000;font-size:12px;font-weight:800;border-radius:6px;cursor:pointer;user-select:none;white-space:nowrap">&#9654; Play Again</div>
       <div onclick="clearReview();showS('ts');resetGame()" style="padding:8px 14px;background:#3a3a4a;color:#fff;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;user-select:none;white-space:nowrap">&#8592; Menu</div>
+    </div>
+  </div>
+</div>
+
+<!-- TUTORIAL BATTLE OVERLAY -->
+<div id="tut-overlay" style="display:none;position:absolute;bottom:0;left:0;right:0;z-index:60;padding:12px 14px;background:linear-gradient(to top,rgba(5,20,5,.98) 80%,transparent);pointer-events:none">
+  <div style="pointer-events:all;background:rgba(15,35,15,.97);border:2px solid rgba(74,222,128,.35);border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+    <div style="font-size:28px;flex-shrink:0;line-height:1">&#129304;</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;color:#4ade80;font-weight:700;letter-spacing:1px;margin-bottom:4px">SENSEI WU</div>
+      <div id="tut-msg" style="font-size:13px;color:#ddd;line-height:1.6"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <div id="tut-btn" onclick="tutStep()" style="padding:7px 16px;background:#4ade80;color:#000;font-size:12px;font-weight:800;border-radius:6px;cursor:pointer;user-select:none">Got it &#8594;</div>
+        <div onclick="exitTutorialBattle()" style="padding:7px 12px;background:transparent;color:#444;font-size:11px;border-radius:6px;cursor:pointer;user-select:none;border:1px solid #2a2a2a">Skip tutorial</div>
+      </div>
     </div>
   </div>
 </div>
@@ -890,6 +910,93 @@ function tutNav(dir){
 }
 
 resetNinjaGrid();
+
+
+// ── TUTORIAL BATTLE ──
+var TUT={active:false,step:0};
+
+var TUT_STEPS=[
+  {msg:"Welcome to your first battle! I am Sensei Wu. You are facing a weakened opponent — perfect for practice. Let's begin.",btn:"Let's go!",action:null},
+  {msg:"This is your <strong>hand</strong> — your elemental cards. Each card costs energy (the number in the gold circle). You have 3 energy this turn.",btn:"Got it",action:null},
+  {msg:"<strong>Click any card</strong> to select it. It will glow gold. Try selecting an attack card now — look for one with a sword &#9876; icon.",btn:null,action:'wait_select'},
+  {msg:"Nice! The card is queued — see the dashed energy orbs? Now press the <strong style='color:#c0392b'>Play Card</strong> button to fire it!",btn:null,action:'wait_play'},
+  {msg:"Excellent strike! Watch the battle feed below — every action is logged there so you can see exactly what happened.",btn:"Got it",action:null},
+  {msg:"Now try <strong>ending your turn</strong> with the End Turn button. The enemy will play their cards — watch the feed!",btn:null,action:'wait_end'},
+  {msg:"You survived! On your next turn, try the <strong>Draw</strong> button — it costs 1 energy but adds a fresh card to your hand.",btn:"Got it",action:null},
+  {msg:"Keep attacking and defending. When the enemy's HP hits zero, you win! From here the game is yours — good luck, ninja!",btn:"Fight!",action:'finish'},
+];
+
+function startTutorialBattle(){
+  TUT={active:true,step:0};
+  gameMode='tutorial';
+  // Force player as Kai vs a very weak Zane
+  selNinja='kai';
+  var pn=Object.assign({},NJ.find(function(n){return n.id==='kai';}));
+  var en=Object.assign({},NJ.find(function(n){return n.id==='zane';}));
+  en.hp=35;en.max=35; // weak enemy so player can win easily
+  G={p:{ninja:pn,hp:pn.hp,max:pn.hp,deck:mkDeck(pn.id),hand:[],shield:0,dodge:false,energy:3,maxE:3,poison:0},
+     e:{ninja:en,hp:35,max:35,deck:mkDeck(en.id),hand:[],shield:0,dodge:false,energy:3,maxE:3,poison:0},
+     turn:'p',queue:new Set(),gameOver:false,stats:{pdmg:0,edmg:0,rounds:0}};
+  document.getElementById('feed').innerHTML='';
+  document.getElementById('go-overlay').classList.remove('active');
+  document.getElementById('review-bar').style.display='none';
+  for(var i=0;i<4;i++)drawFrom(G.p);for(var j=0;j<4;j++)drawFrom(G.e);
+  render();showS('bs');
+  document.getElementById('hlabel').textContent="Kai's Fire Deck — Sensei Wu will guide you";
+  feedRound('Tutorial Battle: Kai vs Zane (weakened) — Follow Sensei Wu!');
+  // show overlay
+  document.getElementById('tut-overlay').style.display='block';
+  showTutStep(0);
+}
+
+function showTutStep(idx){
+  TUT.step=idx;
+  var s=TUT_STEPS[idx];
+  if(!s)return;
+  document.getElementById('tut-msg').innerHTML=s.msg;
+  var btn=document.getElementById('tut-btn');
+  if(s.btn){btn.style.display='inline-block';btn.textContent=s.btn+(s.action==='finish'?'':' →');}
+  else{btn.style.display='none';}
+}
+
+function tutStep(){
+  var s=TUT_STEPS[TUT.step];
+  if(!s)return;
+  if(s.action==='finish'){exitTutorialBattle();return;}
+  var next=TUT.step+1;
+  if(next<TUT_STEPS.length)showTutStep(next);
+  else exitTutorialBattle();
+}
+
+function exitTutorialBattle(){
+  TUT.active=false;
+  document.getElementById('tut-overlay').style.display='none';
+}
+
+// Hook into game actions to advance tutorial steps
+var _origSelCard=selCard;
+function selCard(uid){
+  _origSelCard(uid);
+  if(TUT.active&&TUT.step===2&&G.queue.size>0){
+    showTutStep(3);
+  }
+}
+
+var _origPlayCard=playCard;
+function playCard(){
+  _origPlayCard();
+  if(TUT.active&&TUT.step===3){
+    setTimeout(function(){if(!G.gameOver)showTutStep(4);},400);
+  }
+}
+
+var _origEndTurn=endTurn;
+function endTurn(){
+  _origEndTurn();
+  if(TUT.active&&TUT.step===5){
+    setTimeout(function(){if(!G.gameOver)showTutStep(6);},1600);
+  }
+}
 
 // ── PWA INSTALL ──
 var _installPrompt=null;
