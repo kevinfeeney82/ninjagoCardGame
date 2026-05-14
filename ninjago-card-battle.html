@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ninjago Battle">
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Ninjago%20Card%20Battle%22%2C%22short_name%22%3A%22Ninjago%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230a0a12%22%2C%22theme_color%22%3A%22%23f0a500%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%3D%2527http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%2527%2520viewBox%3D%25270%25200%2564%2564%2527%253E%253Crect%2520width%3D%252764%2527%2520height%3D%252764%2527%2520fill%3D%2527%25230a0a12%2527%2F%253E%253Ctext%2520x%3D%252732%2527%2520y%3D%252745%2527%2520font-size%3D%252740%2527%2520text-anchor%3D%2527middle%2527%253E%25F0%259F%25A5%25B7%253C%2F%2527text%253E%253C%2FSVg%253E%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
 <title>Ninjago Card Battle</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -322,6 +328,19 @@ body{background:#0a0a12;display:flex;justify-content:center;min-height:100vh;pad
   <div class="rstats" id="rst"></div>
   <div style="font-size:11px;color:#444;text-align:center;margin-bottom:14px">— battle replay below —</div>
   <div id="go-btns" style="display:flex;flex-direction:column;align-items:center;gap:10px;width:220px"></div>
+</div>
+
+
+<!-- Install Banner -->
+<div id="install-banner" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:680px;z-index:300;background:rgba(10,10,18,.97);border-top:2px solid rgba(240,165,0,.35);padding:12px 16px;align-items:center;gap:12px">
+  <div style="flex:1;min-width:0">
+    <div style="font-size:13px;font-weight:700;color:#f0a500;letter-spacing:1px">&#129399; NINJAGO CARD BATTLE</div>
+    <div style="font-size:11px;color:#666;margin-top:2px">Install as an app — play any time, offline</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-shrink:0">
+    <div onclick="doInstall()" style="padding:8px 18px;background:#f0a500;color:#000;font-size:12px;font-weight:800;border-radius:6px;cursor:pointer;user-select:none;white-space:nowrap">Install</div>
+    <div onclick="dismissInstall()" style="padding:8px 10px;background:rgba(255,255,255,.06);color:#555;font-size:13px;border-radius:6px;cursor:pointer;user-select:none">&#10005;</div>
+  </div>
 </div>
 
 </div>
@@ -870,6 +889,40 @@ function tutNav(dir){
 }
 
 resetNinjaGrid();
+
+// ── PWA INSTALL ──
+var _installPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();_installPrompt=e;
+  var b=document.getElementById('install-banner');
+  if(b)b.style.display='flex';
+});
+window.addEventListener('appinstalled',function(){
+  var b=document.getElementById('install-banner');if(b)b.style.display='none';
+  _installPrompt=null;
+});
+function doInstall(){
+  if(!_installPrompt)return;
+  _installPrompt.prompt();
+  _installPrompt.userChoice.then(function(r){
+    if(r.outcome==='accepted'){var b=document.getElementById('install-banner');if(b)b.style.display='none';}
+    _installPrompt=null;
+  });
+}
+function dismissInstall(){
+  var b=document.getElementById('install-banner');if(b)b.style.display='none';
+}
+// Register inline service worker for offline support
+if('serviceWorker' in navigator){
+  var swBlob=new Blob([`
+self.addEventListener('install',function(e){self.skipWaiting();});
+self.addEventListener('activate',function(e){e.waitUntil(self.clients.claim());});
+self.addEventListener('fetch',function(e){e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request);}));});
+  `],{type:'application/javascript'});
+  var swUrl=URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl).catch(function(){});
+}
+
 </script>
 </body>
 </html>
