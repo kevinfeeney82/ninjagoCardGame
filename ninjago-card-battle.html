@@ -479,18 +479,28 @@ function showChampion(){
 
 function resetNinjaGrid(){
   var g=document.getElementById('ng');g.innerHTML='';
+  var locked=T.active&&selNinja!==null;
   NJ.forEach(function(n){
     var d=document.createElement('div');d.className='nsel';d.dataset.id=n.id;
-    d.style.borderColor=n.col+'33';d.style.background=n.bg;
+    var isChosen=locked&&n.id===selNinja;
+    d.style.borderColor=isChosen?n.col:n.col+'33';
+    d.style.background=n.bg;
+    if(locked&&!isChosen){d.style.opacity='0.35';d.style.cursor='not-allowed';}
     d.innerHTML='<span class="chk" style="color:'+n.col+'">&#10003;</span>'
       +'<div style="font-size:28px;margin-bottom:6px">'+n.em+'</div>'
       +'<div style="font-size:12px;font-weight:700;color:'+n.col+'">'+n.name+'</div>'
       +'<div style="font-size:10px;color:#888">'+n.el+'</div>'
       +'<div style="font-size:10px;color:#888;margin-top:4px">&#10084;&#65039;'+n.hp+' &#9876;'+n.pw+'</div>';
-    d.onclick=function(){pickNinja(n.id,n.col);};
+    if(!locked)d.onclick=function(){pickNinja(n.id,n.col);};
+    if(isChosen)d.classList.add('sel');
     g.appendChild(d);
   });
-  var sb=document.getElementById('sb');sb.style.background='#5a4a10';sb.style.color='#aaa';sb.style.cursor='not-allowed';sb.dataset.enabled='0';
+  var sb=document.getElementById('sb');
+  if(locked){
+    sb.style.background='#f0a500';sb.style.color='#000';sb.style.cursor='pointer';sb.dataset.enabled='1';
+  } else {
+    sb.style.background='#5a4a10';sb.style.color='#aaa';sb.style.cursor='not-allowed';sb.dataset.enabled='0';
+  }
   if(T.active)updTournProgress();
   // update tournament preview on mode screen
   var tp=document.getElementById('tourn-preview');
@@ -791,8 +801,13 @@ function nextOpponent(){
   document.getElementById('review-bar').style.display='none';
   document.getElementById('tourn-banner').style.display='none';
   updTournProgress();
+  // Update subtitle to show ninja is locked
+  var pn=NJ.find(function(n){return n.id===selNinja;});
+  if(pn){
+    document.getElementById('ds-sub').innerHTML='Playing as '+pn.em+' <strong style="color:'+pn.col+'">'+pn.name+'</strong> — ninja locked for tournament';
+  }
   showS('ds');
-  if(selNinja){var n=NJ.find(function(x){return x.id===selNinja;});if(n)pickNinja(n.id,n.col);}
+  resetNinjaGrid();
 }
 
 function checkWin(){
