@@ -160,6 +160,7 @@ body{background:#0a0a12;display:flex;justify-content:center;min-height:100vh;pad
   <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:240px">
     <div onclick="showS('ms')" style="width:100%;padding:15px 0;background:#f0a500;color:#000;font-size:16px;font-weight:900;border-radius:8px;cursor:pointer;text-align:center;letter-spacing:2px;text-transform:uppercase;user-select:none">&#9654; PLAY</div>
     <div onclick="showS('ht');startTut()" style="width:100%;padding:11px 0;background:#1a3a6a;color:#fff;font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;text-align:center;user-select:none">&#128214; How to Play</div>
+    <div id="install-btn" onclick="doInstall()" style="display:none;width:100%;padding:11px 0;background:rgba(255,255,255,.06);color:#aaa;font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;text-align:center;user-select:none;border:1px solid rgba(255,255,255,.1)">&#128187; Install App</div>
   </div>
 </div>
 
@@ -894,23 +895,53 @@ resetNinjaGrid();
 var _installPrompt=null;
 window.addEventListener('beforeinstallprompt',function(e){
   e.preventDefault();_installPrompt=e;
-  var b=document.getElementById('install-banner');
-  if(b)b.style.display='flex';
+  // Show both the bottom banner and the title screen button
+  var banner=document.getElementById('install-banner');
+  if(banner)banner.style.display='flex';
+  var btn=document.getElementById('install-btn');
+  if(btn)btn.style.display='block';
 });
 window.addEventListener('appinstalled',function(){
-  var b=document.getElementById('install-banner');if(b)b.style.display='none';
+  var banner=document.getElementById('install-banner');if(banner)banner.style.display='none';
+  var btn=document.getElementById('install-btn');if(btn)btn.style.display='none';
   _installPrompt=null;
 });
+// Also show the install button if we're running as a standalone PWA already — hide it
+if(window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone){
+  // already installed — hide everything
+} else {
+  // Show install button after 1.5s as a fallback even without the prompt event
+  // (handles cases where the event already fired before our listener attached)
+  setTimeout(function(){
+    if(!_installPrompt){
+      // No prompt captured — show a manual install hint instead
+      var btn=document.getElementById('install-btn');
+      if(btn){
+        btn.style.display='block';
+        btn.textContent='&#43; Add to Home Screen';
+        btn.onclick=function(){
+          alert('To install: tap the Share button in your browser, then "Add to Home Screen".');
+        };
+      }
+    }
+  },1500);
+}
 function doInstall(){
-  if(!_installPrompt)return;
-  _installPrompt.prompt();
-  _installPrompt.userChoice.then(function(r){
-    if(r.outcome==='accepted'){var b=document.getElementById('install-banner');if(b)b.style.display='none';}
-    _installPrompt=null;
-  });
+  if(_installPrompt){
+    _installPrompt.prompt();
+    _installPrompt.userChoice.then(function(r){
+      if(r.outcome==='accepted'){
+        var banner=document.getElementById('install-banner');if(banner)banner.style.display='none';
+        var btn=document.getElementById('install-btn');if(btn)btn.style.display='none';
+      }
+      _installPrompt=null;
+    });
+  } else {
+    alert('To install: open your browser menu and tap "Add to Home Screen" or "Install App".');
+  }
 }
 function dismissInstall(){
-  var b=document.getElementById('install-banner');if(b)b.style.display='none';
+  var banner=document.getElementById('install-banner');if(banner)banner.style.display='none';
 }
 // Register inline service worker for offline support
 if('serviceWorker' in navigator){
